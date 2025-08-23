@@ -3,26 +3,61 @@
 Este script transforma un grupo de paginas html, agrupadas en directorios, a 1 directorio por categoria, en un dataset para entrenar.
 Espera que haya 1 directorio por categoria dentro del directorio padre cuyo path esta en la variable DIR_BASE_CATEGORIAS. Usa el nombre del directorio como nombre de la categoria.
 """
+from nltk.stem.snowball import SnowballStemmer
+from typing import List, Callable, Optional, Pattern
+import re
+
+stemmer = SnowballStemmer("spanish")
+
+
+def stem(tokens: List[str]) -> List[str]:
+    """
+    Transforma mediante un stemmer a una secuencia de tokens.
+    :param tokens: Una secuencia de tokens.
+    :return La secuencia de tokens transformada por el stemmer.
+    """
+    global stemmer
+    return [stemmer.stem(w.lower()) for w in tokens]
+
+
+def tokenizador(token_regex: Optional[Pattern] = None) -> Callable[[str],List[str]]:
+    """
+    :param token_regex: Una expresion regular que define que es un token
+    :return: Una funcion que recibe un texto y retorna el texto tokenizado.
+    """
+    if token_regex is None:
+        # definicion de que es un token: una letra seguida de letras y numeros
+        token_regex = r"[a-zA-ZâáàãõáêéíóôõúüÁÉÍÓÚñÑçÇ][0-9a-zA-ZâáàãõáêéíóôõúüÁÉÍÓÚñÑçÇ]+"
+    token_pattern = re.compile(token_regex)
+    return lambda doc: token_pattern.findall(doc)
+
+
+def tokenizador_con_stemming(token_regex: Optional[Pattern] = None) ->  Callable[[str], List[str]]:
+    """
+    :param token_regex: Una expresion regular que define que es un token
+    :return: Una funcion que recibe un texto y retorna el texto tokenizado y transformado por un stemmer en español.
+    """
+    tokenizer = tokenizador(token_regex)
+    return lambda doc: stem(tokenizer(doc))
+
 from sklearn.feature_extraction.text import CountVectorizer
 from bs4 import BeautifulSoup
 import re
 import os
 import joblib
+import pandas as pd
 from typing import Pattern, Optional, List, Tuple
-from tokenizers import tokenizador, tokenizador_con_stemming
 
-STOPWORDS_FILE = "stopwords_es.txt"
-STOPWORDS_FILE_SIN_ACENTOS = "stopwords_es_sin_acentos.txt"
+STOPWORDS_FILE = "./config/stopwords_es.txt"
+STOPWORDS_FILE_SIN_ACENTOS = "./config/stopwords_es_sin_acentos.txt"
 # Este es el path COMPLETO del directorio que contiene a 1 subdirectorio por cada categoria; adentro de esos subdirs estan los html
-DIR_BASE_CATEGORIAS = "/home/fernando/lanacion"
+DIR_BASE_CATEGORIAS = "./paginas"
 
 # este es el texto que tiene que aparecer en las notas, antes del texto de la nota
 MARCADOR_COMIENZO_INTERESANTE="<p class=\"capital\">"
 # este es el texto que tiene que aparecer en las notas, despues del texto de la nota
 MARCADOR_FIN_INTERESANTE="<div class=\"banner middle-3 b-desktop"
 extractor_de_parte_de_html_que_interesa = re.compile(re.escape(MARCADOR_COMIENZO_INTERESANTE) + "(.+)" + re.escape(MARCADOR_FIN_INTERESANTE))
-
-
 
 # cantidad minima de docs que tienen que tener a un token para conservarlo.
 MIN_DF=3
@@ -33,9 +68,9 @@ MAX_DF=0.8
 MIN_NGRAMS=1
 MAX_NGRAMS=2
 
-VECTORS_FILE = "vectores.joblib"
-TARGETS_FILE = "targets.joblib"
-FEATURE_NAMES_FILE = "features.joblib"
+VECTORS_FILE = "vectores.parquet"
+TARGETS_FILE = "targets.parquet"
+FEATURE_NAMES_FILE = "features.parquet"
 
 
 def extraer_parte_que_interesa_de_html(regex:Pattern, texto:str) -> Optional[str]:
@@ -110,16 +145,35 @@ if __name__ == "__main__":
 
     mi_lista_stopwords = leer_stopwords(STOPWORDS_FILE_SIN_ACENTOS)
     mi_tokenizer = tokenizador()
-    vectorizer = CountVectorizer(stop_words=mi_lista_stopwords, tokenizer=mi_tokenizer,
-                                 lowercase=True, strip_accents='unicode', decode_error='ignore',
-                                 ngram_range=(MIN_NGRAMS, MAX_NGRAMS), min_df=MIN_DF, max_df=MAX_DF)
+    vectorizer = CountVectorizer(
+        stop_words=mi_lista_stopwords, 
+        tokenizer=mi_tokenizer,
+        lowercase=True, 
+        strip_accents='unicode', 
+        decode_error='ignore',
+        ngram_range=(MIN_NGRAMS, MAX_NGRAMS), 
+        min_df=MIN_DF, 
+        max_df=MAX_DF
+    )
 
     # fit = tokenizar y codificar documentos como filas
     todos_lost_vectores = vectorizer.fit_transform(todos_lost_htmls)
-    # guardar vectores de docs y la correspondiente categoria asignada a cada doc.
-    joblib.dump(todos_lost_vectores, VECTORS_FILE)
-    joblib.dump(todos_los_targets, TARGETS_FILE)
-    print("Finalizado, el dataset está en {} y {}.".format(VECTORS_FILE, TARGETS_FILE))
+    # obtener nombres de las features
     nombres_features = vectorizer.get_feature_names()
-    joblib.dump(nombres_features, FEATURE_NAMES_FILE)
-    print("El nombre de cada columna de features esta en {}.".format(FEATURE_NAMES_FILE))
+    
+    # Convertir matriz dispersa a DataFrame con columnas = nombres de features
+    df_vectores = pd.DataFrame.sparse.from_spmatrix(
+        todos_lost_vectores,
+        columns=nombres_features
+    )
+    
+    # Agregar columna con la categoría
+    df_vectores["target"] = todos_los_targets
+    
+    # Guardar todo en un único parquet
+    df_vectores.to_parquet("dataset.parquet", index=False)
+    print("Finalizado, el dataset está en dataset.parquet")
+    
+    # Si querés guardar solo la lista de features también por separado
+    pd.DataFrame({"feature": nombres_features}).to_parquet(FEATURE_NAMES_FILE, index=False)
+    print("El nombre de cada columna de features está en {}.".format(FEATURE_NAMES_FILE))
