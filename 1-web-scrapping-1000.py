@@ -125,7 +125,7 @@ if __name__ == "__main__":
     create_directory(DIR_EN_DONDE_GUARDAR_PAGINAS)
     secciones = ['el-mundo','el-pais','economia','sociedad']
     # Cantidad máxima de páginas por sección a scrapear
-    max_pages_por_seccion = 30
+    max_pages_por_seccion = 1000
     for seccion in secciones:
         print("//////////////////////////////////////")
         print(f" Scrapeando sección {seccion}")
