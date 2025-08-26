@@ -3,8 +3,6 @@ import scrapy
 import os
 from scrapy.linkextractors import LinkExtractor
 from scrapy.spiders import CrawlSpider, Rule
-from urllib.parse import urlparse
-from scrapy.utils.response import open_in_browser
 from scrapy.crawler import CrawlerProcess
 from urllib import parse
 from os import path
@@ -22,7 +20,7 @@ class NewsSpider(CrawlSpider):
     # solo descargar paginas desde estos dominios
     allowed_domains = ('www.pagina12.com.ar','pagina12.com.ar')
     # paginas a descargar
-    max_pages = 100 # valor por defecto 100 noticias por seccion
+    max_pages = 10 # valor por defecto 10 noticias por seccion
     page_count = 0 # contador de paginas descargadas por defecto en 0
 
     rules = (
@@ -127,7 +125,7 @@ if __name__ == "__main__":
     create_directory(DIR_EN_DONDE_GUARDAR_PAGINAS)
     secciones = ['el-mundo','el-pais','economia','sociedad']
     # Cantidad máxima de páginas por sección a scrapear
-    max_pages_por_seccion = 12
+    max_pages_por_seccion = 1000
     for seccion in secciones:
         print("//////////////////////////////////////")
         print(f" Scrapeando sección {seccion}")
