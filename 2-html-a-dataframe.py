@@ -155,6 +155,7 @@ if __name__ == "__main__":
 
     # fit = tokenizar y codificar documentos como filas
     todos_los_vectores = vectorizer.fit_transform(todos_lost_htmls)
+    
     # guardar vectores de docs y la correspondiente categoria asignada a cada doc.
     joblib.dump(todos_los_vectores, VECTORS_FILE)
     joblib.dump(todos_los_targets, TARGETS_FILE)
