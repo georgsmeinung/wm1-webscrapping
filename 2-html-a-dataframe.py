@@ -51,9 +51,9 @@ STOPWORDS_FILE_SIN_ACENTOS = "./config/stopwords_es_sin_acentos.txt"
 DIR_BASE_CATEGORIAS = "./paginas"
 
 # este es el texto que tiene que aparecer en las notas, antes del texto de la nota
-MARCADOR_COMIENZO_INTERESANTE="<div class=\"article-main-content article-text\">"
+MARCADOR_COMIENZO_INTERESANTE="article-main-content>"
 # este es el texto que tiene que aparecer en las notas, despues del texto de la nota
-MARCADOR_FIN_INTERESANTE="<div class=\"share-mobile hide-on-desktop\">"
+MARCADOR_FIN_INTERESANTE=" <div class=\"share-mobile"
 extractor_de_parte_de_html_que_interesa = re.compile(re.escape(MARCADOR_COMIENZO_INTERESANTE) + "(.+)" + re.escape(MARCADOR_FIN_INTERESANTE))
 
 # cantidad minima de docs que tienen que tener a un token para conservarlo.
@@ -117,7 +117,9 @@ def htmls_y_target(dir_de_1_categoria:str) -> Tuple[List[str],List[str]]:
     for archivo_html in os.listdir(dir_de_1_categoria):
         path_completo_html = os.path.join(dir_de_1_categoria, archivo_html)
         if os.path.isfile(path_completo_html):
+            print(f"Leyendo archivo {path_completo_html}")
             texto = pasar_html_a_texto(leer_archivo(path_completo_html))
+            print(f"Texto extraído del archivo {path_completo_html}: {texto}")
             if texto is not None:
                 htmls.append(texto)
             else:

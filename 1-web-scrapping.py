@@ -121,8 +121,8 @@ def create_directory(dir_path: str):
             print(f"Error creating directory: {e}")
 
 if __name__ == "__main__":
-    DIR_EN_DONDE_GUARDAR_PAGINAS="./paginas"
-    create_directory(DIR_EN_DONDE_GUARDAR_PAGINAS)
+    DIR_BASE="./paginas"
+    create_directory(DIR_BASE)
     secciones = ['el-mundo','el-pais','economia','sociedad']
     # Cantidad máxima de páginas por sección a scrapear
     max_pages_por_seccion = 30
@@ -130,8 +130,8 @@ if __name__ == "__main__":
         print("//////////////////////////////////////")
         print(f" Scrapeando sección {seccion}")
         print("//////////////////////////////////////")
-        DIR_EN_DONDE_GUARDAR_PAGINAS=f"{DIR_EN_DONDE_GUARDAR_PAGINAS}/{seccion}"
-        create_directory(DIR_EN_DONDE_GUARDAR_PAGINAS)
+        DIR_SECCION=f"{DIR_BASE}/{seccion}"
+        create_directory(DIR_SECCION)
         # Ejecutar al crawler en un proceso separado, sino al 
         # volver a arrancar con la prox pagina de indice de noticias,
         # el crawler de scrappy da error. Esto es un fix para un problema particular de scrappy.
