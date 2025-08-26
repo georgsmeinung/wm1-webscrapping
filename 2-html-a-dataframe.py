@@ -154,12 +154,11 @@ if __name__ == "__main__":
     )
 
     # fit = tokenizar y codificar documentos como filas
-    todos_lost_vectores = vectorizer.fit_transform(todos_lost_htmls)
-    
+    todos_los_vectores = vectorizer.fit_transform(todos_lost_htmls)
     # guardar vectores de docs y la correspondiente categoria asignada a cada doc.
-    joblib.dump(todos_lost_vectores, VECTORS_FILE)
+    joblib.dump(todos_los_vectores, VECTORS_FILE)
     joblib.dump(todos_los_targets, TARGETS_FILE)
-    print(f"Finalizado, el dataset está en {VECTORS_FILE} y {TARGETS_FILE}.")
     nombres_features = vectorizer.get_feature_names_out()
+    print(f"Feature names: \n{nombres_features}")
     joblib.dump(nombres_features, FEATURE_NAMES_FILE)
     print(f"El nombre de cada columna de features esta en {FEATURE_NAMES_FILE}.")
