@@ -145,7 +145,7 @@ if __name__ == "__main__":
             q = multiprocessing.Queue()
             process = multiprocessing.Process(
                 target=start_crawler,
-                args=(DIR_EN_DONDE_GUARDAR_PAGINAS,
+                args=(DIR_SECCION,
                     [start_url],
                     seccion_count,
                     max_pages_por_seccion,

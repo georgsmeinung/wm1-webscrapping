@@ -125,7 +125,7 @@ if __name__ == "__main__":
     create_directory(DIR_BASE)
     secciones = ['el-mundo','el-pais','economia','sociedad']
     # Cantidad máxima de páginas por sección a scrapear
-    max_pages_por_seccion = 30
+    max_pages_por_seccion = 50
     for seccion in secciones:
         print("//////////////////////////////////////")
         print(f" Scrapeando sección {seccion}")
@@ -145,7 +145,7 @@ if __name__ == "__main__":
             q = multiprocessing.Queue()
             process = multiprocessing.Process(
                 target=start_crawler,
-                args=(DIR_EN_DONDE_GUARDAR_PAGINAS,
+                args=(DIR_SECCION,
                     [start_url],
                     seccion_count,
                     max_pages_por_seccion,
