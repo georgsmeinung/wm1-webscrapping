@@ -21,7 +21,10 @@ class NewsSpider(CrawlSpider):
     name = 'crawler_pagina12'
     # solo descargar paginas desde estos dominios
     allowed_domains = ('www.pagina12.com.ar','pagina12.com.ar')
-    
+    # paginas a descargar
+    max_pages = 100 # valor por defecto 100 noticias por seccion
+    page_count = 0 # contador de paginas descargadas por defecto en 0
+
     rules = (
         # Rule for article pages (e.g., /999999-texto)
         Rule(LinkExtractor(
@@ -53,26 +56,61 @@ class NewsSpider(CrawlSpider):
         super().__init__(*args, **kwargs)
         # guardar el directorio en donde vamos a descargar las paginas
         self.basedir = save_pages_in_dir
-    
+        self.page_count = kwargs.get('current_pages', 0)
+        self.max_pages = kwargs.get('max_pages', 100)
+
     def parse_response(self, response:HtmlResponse):
         """
         Este metodo es llamado por cada url que descarga Scrappy.
         response.url contiene la url de la pagina,
         response.body contiene los bytes del contenido de la pagina.
         """
-        # el nombre de archivo es lo que esta luego de la ultima "/"
-        html_filename = path.join(self.basedir,parse.quote(response.url[response.url.rfind("/")+1:]))
-        if not html_filename.endswith(".html"):
-            html_filename+=".html"
-        print("Pagina guardada en:", html_filename)
-        # sabemos que pagina 12 usa encoding utf8
-        with open(html_filename, "wt") as html_file:
-            html_file.write(response.body.decode("utf-8"))
+        if self.page_count <= self.max_pages:
+            # el nombre de archivo es lo que esta luego de la ultima "/"
+            html_filename = path.join(self.basedir,parse.quote(response.url[response.url.rfind("/")+1:]))
+            if not html_filename.endswith(".html"):
+                html_filename+=".html"
+            # decodificar el HTML
+            html_content = response.body.decode("utf-8")
+            
+            # chequear si contiene el marcador de paywall
+            if '<div class="paywall-inner-text">' in html_content:
+                print("Página omitida (paywall detectado):", html_filename)
+            else:
+                if '<div class="author-hero">' in html_content:
+                    print("Página omitida (pagina de autor detectada):", html_filename)
+                else:
+                    self.page_count += 1
+                    print("Página guardada en:", html_filename)
+                    with open(html_filename, "wt", encoding="utf-8") as html_file:
+                        html_file.write(html_content)
+        else:
+            self.crawler.engine.close_spider(self, f"Alcanzado límite de {self.max_pages} páginas ")
 
-def start_crawler(save_pages_in_dir:str, start_urls:List[str]):
-    crawler = CrawlerProcess()
-    crawler.crawl(NewsSpider, save_pages_in_dir = save_pages_in_dir, start_urls = start_urls)
-    crawler.start()
+def start_crawler(save_pages_in_dir:str, start_urls:List[str], current_pages:int, max_pages:int, result_dict:multiprocessing.Queue):
+    def spider_closed(spider, reason):
+        result = {
+            "pages_scraped": spider.page_count,
+            "reason": reason
+        }
+        result_dict.put(result)   # Enviar el resultado al proceso padre
+        
+    process = CrawlerProcess()
+
+    crawler = process.create_crawler(NewsSpider)
+
+    # Conecto signals para poder tomar el conteo de páginas scrapeadas
+    crawler.signals.connect(spider_closed, signal=scrapy.signals.spider_closed)
+
+    process.crawl(
+        crawler,
+        save_pages_in_dir=save_pages_in_dir,
+        start_urls=start_urls,
+        current_pages=current_pages,
+        max_pages=max_pages
+    )
+    
+    process.start()
 
 def create_directory(dir_path: str):
     if not path.exists(dir_path):
@@ -89,24 +127,36 @@ if __name__ == "__main__":
     create_directory(DIR_EN_DONDE_GUARDAR_PAGINAS)
     secciones = ['el-mundo','el-pais','economia','sociedad']
     # Cantidad máxima de páginas por sección a scrapear
-    # Cada página de la sección tiene 11 noticias
-    max_follow = 99
+    max_pages_por_seccion = 12
     for seccion in secciones:
         print("//////////////////////////////////////")
-        print(f"    Scrapeando sección {seccion}")
+        print(f" Scrapeando sección {seccion}")
         print("//////////////////////////////////////")
         DIR_EN_DONDE_GUARDAR_PAGINAS=f"./paginas/{seccion}"
         create_directory(DIR_EN_DONDE_GUARDAR_PAGINAS)
         # Ejecutar al crawler en un proceso separado, sino al 
         # volver a arrancar con la prox pagina de indice de noticias,
         # el crawler de scrappy da error. Esto es un fix para un problema particular de scrappy.
-        for page in range(1, max_follow + 1):
-            start_url=f'http://www.pagina12.com.ar/secciones/{seccion}?page={page}'
-            print(f"<<< Iniciando scrapper para {start_url} >>>")
+        seccion_count = 0
+        page_index = 1
+        while seccion_count < max_pages_por_seccion:
+            start_url=f'http://www.pagina12.com.ar/secciones/{seccion}?page={page_index}'
+            print("|||")
+            print(f"||| Iniciando scrapper para {start_url}")
+            print("|||")      
+            q = multiprocessing.Queue()
             process = multiprocessing.Process(
                 target=start_crawler,
                 args=(DIR_EN_DONDE_GUARDAR_PAGINAS,
-                    [start_url]))
+                    [start_url],
+                    seccion_count,
+                    max_pages_por_seccion,
+                    q
+                )
+            )
             process.start()
             process.join()
-
+            process_result = q.get()
+            seccion_count = process_result["pages_scraped"]
+            print(f"||| Acumulado de páginas scrapeadas {seccion_count} de {max_pages_por_seccion}")
+            page_index += 1

@@ -6,6 +6,12 @@ Espera que haya 1 directorio por categoria dentro del directorio padre cuyo path
 from nltk.stem.snowball import SnowballStemmer
 from typing import List, Callable, Optional, Pattern
 import re
+from sklearn.feature_extraction.text import CountVectorizer
+from bs4 import BeautifulSoup
+import os
+import joblib
+import pandas as pd
+from typing import Pattern, Optional, List, Tuple
 
 stemmer = SnowballStemmer("spanish")
 
@@ -40,23 +46,15 @@ def tokenizador_con_stemming(token_regex: Optional[Pattern] = None) ->  Callable
     tokenizer = tokenizador(token_regex)
     return lambda doc: stem(tokenizer(doc))
 
-from sklearn.feature_extraction.text import CountVectorizer
-from bs4 import BeautifulSoup
-import re
-import os
-import joblib
-import pandas as pd
-from typing import Pattern, Optional, List, Tuple
-
 STOPWORDS_FILE = "./config/stopwords_es.txt"
 STOPWORDS_FILE_SIN_ACENTOS = "./config/stopwords_es_sin_acentos.txt"
 # Este es el path COMPLETO del directorio que contiene a 1 subdirectorio por cada categoria; adentro de esos subdirs estan los html
 DIR_BASE_CATEGORIAS = "./paginas"
 
 # este es el texto que tiene que aparecer en las notas, antes del texto de la nota
-MARCADOR_COMIENZO_INTERESANTE="<p class=\"capital\">"
+MARCADOR_COMIENZO_INTERESANTE="<div class=\"article-main-content article-text\">"
 # este es el texto que tiene que aparecer en las notas, despues del texto de la nota
-MARCADOR_FIN_INTERESANTE="<div class=\"banner middle-3 b-desktop"
+MARCADOR_FIN_INTERESANTE="<div class=\"share-mobile hide-on-desktop\">"
 extractor_de_parte_de_html_que_interesa = re.compile(re.escape(MARCADOR_COMIENZO_INTERESANTE) + "(.+)" + re.escape(MARCADOR_FIN_INTERESANTE))
 
 # cantidad minima de docs que tienen que tener a un token para conservarlo.
