@@ -121,7 +121,7 @@ def create_directory(dir_path: str):
             print(f"Error creating directory: {e}")
 
 if __name__ == "__main__":
-    DIR_EN_DONDE_GUARDAR_PAGINAS="./paginas"
+    DIR_EN_DONDE_GUARDAR_PAGINAS="./1000paginas"
     create_directory(DIR_EN_DONDE_GUARDAR_PAGINAS)
     secciones = ['el-mundo','el-pais','economia','sociedad']
     # Cantidad máxima de páginas por sección a scrapear
