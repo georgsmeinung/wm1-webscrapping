@@ -9,11 +9,10 @@ import re
 from sklearn.feature_extraction.text import CountVectorizer
 from bs4 import BeautifulSoup
 import os
-import pandas as pd
+import joblib
 from typing import Pattern, Optional, List, Tuple
 
 stemmer = SnowballStemmer("spanish")
-
 
 def stem(tokens: List[str]) -> List[str]:
     """
@@ -51,10 +50,11 @@ STOPWORDS_FILE_SIN_ACENTOS = "./config/stopwords_es_sin_acentos.txt"
 DIR_BASE_CATEGORIAS = "./paginas"
 
 # este es el texto que tiene que aparecer en las notas, antes del texto de la nota
-MARCADOR_COMIENZO_INTERESANTE="article-main-content>"
+MARCADOR_COMIENZO_INTERESANTE="<div class=\"article-main-content article-text  \">"
 # este es el texto que tiene que aparecer en las notas, despues del texto de la nota
-MARCADOR_FIN_INTERESANTE=" <div class=\"share-mobile"
+MARCADOR_FIN_INTERESANTE="<div class=\"share-mobile hide-on-desktop\">"
 extractor_de_parte_de_html_que_interesa = re.compile(re.escape(MARCADOR_COMIENZO_INTERESANTE) + "(.+)" + re.escape(MARCADOR_FIN_INTERESANTE))
+print(f"*** Usando la siguiente regex para extraer la parte del html que interesa:\n{extractor_de_parte_de_html_que_interesa.pattern}")
 
 # cantidad minima de docs que tienen que tener a un token para conservarlo.
 MIN_DF=3
@@ -65,10 +65,9 @@ MAX_DF=0.8
 MIN_NGRAMS=1
 MAX_NGRAMS=2
 
-VECTORS_FILE = "vectores.parquet"
-TARGETS_FILE = "targets.parquet"
-FEATURE_NAMES_FILE = "features.parquet"
-
+VECTORS_FILE = "vectores.joblib"
+TARGETS_FILE = "targets.joblib"
+FEATURE_NAMES_FILE = "features.joblib"
 
 def extraer_parte_que_interesa_de_html(regex:Pattern, texto:str) -> Optional[str]:
     """
@@ -117,13 +116,12 @@ def htmls_y_target(dir_de_1_categoria:str) -> Tuple[List[str],List[str]]:
     for archivo_html in os.listdir(dir_de_1_categoria):
         path_completo_html = os.path.join(dir_de_1_categoria, archivo_html)
         if os.path.isfile(path_completo_html):
-            print(f"Leyendo archivo {path_completo_html}")
             texto = pasar_html_a_texto(leer_archivo(path_completo_html))
-            print(f"Texto extraído del archivo {path_completo_html}: {texto}")
             if texto is not None:
+                print(f"Leído archivo {path_completo_html}")
                 htmls.append(texto)
             else:
-                print("CUIDADO! No fue posible extraer el texto de la nota del archivo {}".format(path_completo_html))
+                print(f"ERROR - No fue posible extraer texto e {path_completo_html}")
     target_class = [dir_por_categoria] * len(htmls)
     return htmls, target_class
 
@@ -157,22 +155,11 @@ if __name__ == "__main__":
 
     # fit = tokenizar y codificar documentos como filas
     todos_lost_vectores = vectorizer.fit_transform(todos_lost_htmls)
-    # obtener nombres de las features
-    nombres_features = vectorizer.get_feature_names()
     
-    # Convertir matriz dispersa a DataFrame con columnas = nombres de features
-    df_vectores = pd.DataFrame.sparse.from_spmatrix(
-        todos_lost_vectores,
-        columns=nombres_features
-    )
-    
-    # Agregar columna con la categoría
-    df_vectores["target"] = todos_los_targets
-    
-    # Guardar todo en un único parquet
-    df_vectores.to_parquet("dataset.parquet", index=False)
-    print("Finalizado, el dataset está en dataset.parquet")
-    
-    # Si querés guardar solo la lista de features también por separado
-    pd.DataFrame({"feature": nombres_features}).to_parquet(FEATURE_NAMES_FILE, index=False)
-    print("El nombre de cada columna de features está en {}.".format(FEATURE_NAMES_FILE))
+    # guardar vectores de docs y la correspondiente categoria asignada a cada doc.
+    joblib.dump(todos_lost_vectores, VECTORS_FILE)
+    joblib.dump(todos_los_targets, TARGETS_FILE)
+    print(f"Finalizado, el dataset está en {VECTORS_FILE} y {TARGETS_FILE}.")
+    nombres_features = vectorizer.get_feature_names_out()
+    joblib.dump(nombres_features, FEATURE_NAMES_FILE)
+    print(f"El nombre de cada columna de features esta en {FEATURE_NAMES_FILE}.")
