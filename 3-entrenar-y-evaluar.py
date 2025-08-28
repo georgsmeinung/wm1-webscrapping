@@ -2,15 +2,16 @@
 """
 Lee el dataset vectorizado y entrena/evalúa con CV.
 """
+from typing import Dict
+
+import joblib
+import numpy as np
+from sklearn.feature_selection import SelectKBest, chi2
+from sklearn.metrics import accuracy_score, auc, confusion_matrix, roc_curve
+from sklearn.model_selection import StratifiedKFold
+from sklearn.multiclass import OneVsRestClassifier
 from sklearn.preprocessing import LabelEncoder, label_binarize
 from sklearn.svm import SVC
-from sklearn.model_selection import StratifiedKFold
-from sklearn.metrics import confusion_matrix, roc_curve, accuracy_score, auc
-from sklearn.multiclass import OneVsRestClassifier
-import joblib
-from sklearn.feature_selection import SelectKBest, chi2
-from typing import Dict
-import numpy as np
 
 VECTORS_FILE = "vectores.joblib"
 TARGETS_FILE = "targets.joblib"
@@ -56,6 +57,7 @@ def pesos_de_features(score_fn, train_fold, train_targets_fold) -> np.ndarray:
     scores, _ = score_fn(train_fold, train_targets_fold)
     # scores viene como array shape (n_features,), lo aplanamos por las dudas
     return np.asarray(scores).ravel()
+
 
 def imprimir_features_con_pesos(score_fn, train_fold, train_targets_fold, nombres_features, top_n=-1):
     pesos_features = pesos_de_features(score_fn, train_fold, train_targets_fold)
