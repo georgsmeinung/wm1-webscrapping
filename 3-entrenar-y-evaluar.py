@@ -13,6 +13,7 @@ from sklearn.multiclass import OneVsRestClassifier
 from sklearn.preprocessing import LabelEncoder, label_binarize
 from sklearn.svm import SVC
 
+DATA_FILE = "data.joblib"
 VECTORS_FILE = "vectores.joblib"
 TARGETS_FILE = "targets.joblib"
 FEATURE_NAMES_FILE = "features.joblib"
@@ -75,6 +76,7 @@ def nombres_features_seleccionadas(selector_features, nombres_features):
     return [feat for selected, feat in zip(cols, nombres_features) if selected]
 
 # --- carga
+datos = joblib.load(DATA_FILE)
 vectores = joblib.load(VECTORS_FILE)
 nombres_targets = joblib.load(TARGETS_FILE)
 nombres_features = joblib.load(FEATURE_NAMES_FILE)
@@ -91,6 +93,8 @@ CANT_FOLDS_CV = 5
 n_fold = 1
 accuracy_promedio = 0.0
 
+# EVALUACION CON 5 FOLDS
+print(f"Evaluando con {CANT_FOLDS_CV} folds:")
 for train_index, test_index in StratifiedKFold(n_splits=CANT_FOLDS_CV, shuffle=True, random_state=None).split(vectores, targets):
     train_fold = vectores[train_index]
     train_targets_fold = targets[train_index]
@@ -128,3 +132,4 @@ for train_index, test_index in StratifiedKFold(n_splits=CANT_FOLDS_CV, shuffle=T
     n_fold += 1
 
 print("\nAccuracy promedio = {}".format(accuracy_promedio / (n_fold - 1)))
+

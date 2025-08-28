@@ -11,6 +11,8 @@ from bs4 import BeautifulSoup
 import os
 import joblib
 from typing import Pattern, Optional, List, Tuple
+import json
+import pandas as pd
 
 stemmer = SnowballStemmer("spanish")
 
@@ -69,6 +71,8 @@ VECTORS_FILE = "vectores.joblib"
 TARGETS_FILE = "targets.joblib"
 FEATURE_NAMES_FILE = "features.joblib"
 
+DF_PARQUET_FILE = "data.parquet"
+
 def extraer_parte_que_interesa_de_html(regex:Pattern, texto:str) -> Optional[str]:
     """
     Usa una expresion regular con 1 grupo de captura para extraer una parte de un texto.
@@ -95,6 +99,55 @@ def pasar_html_a_texto(html_doc:str) -> Optional[str]:
         return texto
     else:
         return None
+        
+def extraer_datos_nota(html_doc: str) -> Optional[Tuple[Optional[str], Optional[str], Optional[str]]]:
+    """
+    Recibe el HTML completo de una nota, y devuelve una tupla con:
+        (titulo, fecha_publicacion, texto)
+
+    - titulo: el texto del <title> o del JSON-LD si existe
+    - fecha_publicacion: el valor de "datePublished" si está presente en el JSON-LD
+    - texto: el contenido plano del articleBody (limpio de tags HTML)
+    """
+    try:
+        soup = BeautifulSoup(html_doc, 'html.parser')
+
+        # 1. Extraer titulo
+        titulo = None
+        if soup.title:
+            titulo = soup.title.get_text(strip=True)
+
+        # 2. Extraer fecha_publicacion desde JSON-LD si existe
+        fecha_publicacion = None
+        script_ld_json = soup.find("script", {"type": "application/ld+json"})
+        if script_ld_json:
+            try:
+                data_json = json.loads(script_ld_json.string)
+                if isinstance(data_json, dict):
+                    fecha_publicacion = data_json.get("datePublished")
+                    if "headline" in data_json and not titulo:
+                        titulo = data_json["headline"]
+            except json.JSONDecodeError:
+                pass
+
+        # 3. Extraer texto principal (articleBody si está en JSON-LD, si no, desde el HTML visible)
+        texto = None
+        if script_ld_json:
+            try:
+                if isinstance(data_json, dict) and "articleBody" in data_json:
+                    texto = data_json["articleBody"]
+            except Exception:
+                pass
+
+        if not texto:
+            # fallback: usar el contenido visible (puede traer ruido)
+            texto = soup.get_text(separator=" ", strip=True)
+
+        return titulo, fecha_publicacion, texto
+
+    except Exception as e:
+        print(f"Error procesando HTML: {e}")
+        return None
 
 
 def leer_archivo(path:str) -> str:
@@ -105,7 +158,7 @@ def leer_stopwords(path:str) -> List[str]:
         return [stopword for stopword in [stopword.strip().lower() for stopword in stopwords_file] if len(stopword)>0 ]
 
 
-def htmls_y_target(dir_de_1_categoria:str) -> Tuple[List[str],List[str]]:
+def htmls_y_target(dir_de_1_categoria:str) -> Tuple[List[str],List[str],List[str],List[str]]:
     """
     Lee todos los archivos html en el directorio, y retorna un par([lista de html],[lista de categoria]).
     El nombre del directorio se usa como categoria.
@@ -113,23 +166,29 @@ def htmls_y_target(dir_de_1_categoria:str) -> Tuple[List[str],List[str]]:
     :return: un par([lista de html],[lista de categorias]) donde a cada html le corresponde la misma categoria, asignada en base al nombre del directorio..
     """
     htmls = []
+    titulos = []
+    fechas = []
     for archivo_html in os.listdir(dir_de_1_categoria):
         path_completo_html = os.path.join(dir_de_1_categoria, archivo_html)
         print(f"Procesando archivo {path_completo_html}...")
         if os.path.isfile(path_completo_html):
-            texto = pasar_html_a_texto(leer_archivo(path_completo_html))
+            # texto = pasar_html_a_texto(leer_archivo(path_completo_html))
+            titulo, fecha, texto = extraer_datos_nota(leer_archivo(path_completo_html))
             if texto is not None:
                 print(f"OK- Archivo {path_completo_html} leído")
+                titulos.append(titulo)
+                fechas.append(fecha)
                 htmls.append(texto)
             else:
                 print(f"ERROR - No fue posible extraer texto de {path_completo_html}")
     target_class = [dir_por_categoria] * len(htmls)
-    return htmls, target_class
+    return titulos, fechas, htmls, target_class
 
 
 if __name__ == "__main__":
 
-    todos_lost_htmls = []
+    todos_los_datos = []
+    todos_los_htmls = []
     todos_los_targets = []
 
     # armar una lista con todos los suddirectorios de DIR_BASE_CATEGORIAS
@@ -138,8 +197,11 @@ if __name__ == "__main__":
     # a cada html sera el nombre del subdirectorio que lo contiene.
     for dir_por_categoria in un_dir_por_categoria:
         print(f"Procesando directorio: {dir_por_categoria}")
-        htmls, targets  = htmls_y_target(os.path.join(DIR_BASE_CATEGORIAS, dir_por_categoria))
-        todos_lost_htmls.extend(htmls)
+        titulos, fechas, htmls, targets  = htmls_y_target(os.path.join(DIR_BASE_CATEGORIAS, dir_por_categoria))
+        todos_los_datos.extend(titulos)
+        todos_los_datos.extend(fechas)
+        todos_los_datos.extend(htmls)
+        todos_los_htmls.extend(htmls)
         todos_los_targets.extend(targets)
 
     mi_lista_stopwords = leer_stopwords(STOPWORDS_FILE_SIN_ACENTOS)
@@ -156,7 +218,7 @@ if __name__ == "__main__":
     )
 
     # fit = tokenizar y codificar documentos como filas
-    todos_los_vectores = vectorizer.fit_transform(todos_lost_htmls)
+    todos_los_vectores = vectorizer.fit_transform(todos_los_htmls)
     
     # guardar vectores de docs y la correspondiente categoria asignada a cada doc.
     joblib.dump(todos_los_vectores, VECTORS_FILE)
@@ -165,3 +227,14 @@ if __name__ == "__main__":
     print(f"Feature names: \n{nombres_features}")
     joblib.dump(nombres_features, FEATURE_NAMES_FILE)
     print(f"El nombre de cada columna de features esta en {FEATURE_NAMES_FILE}.")
+
+    # Generar DataFrame a partir de los vectores
+    df_vectores = pd.DataFrame(todos_los_vectores.toarray(), columns=nombres_features)
+    df_vectores['target'] = todos_los_targets
+    # Agregar columnas de metadatos
+    df_vectores['titulo'] = todos_los_datos[0]
+    df_vectores['fecha'] = todos_los_datos[1]
+    print(f"DataFrame generado con forma: {df_vectores.shape}")
+    # almacenar datafram en archivo .parquet
+    
+    df_vectores.to_parquet(DF_PARQUET_FILE)
