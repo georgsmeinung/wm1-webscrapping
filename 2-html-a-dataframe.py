@@ -115,13 +115,14 @@ def htmls_y_target(dir_de_1_categoria:str) -> Tuple[List[str],List[str]]:
     htmls = []
     for archivo_html in os.listdir(dir_de_1_categoria):
         path_completo_html = os.path.join(dir_de_1_categoria, archivo_html)
+        print(f"Procesando archivo {path_completo_html}...")
         if os.path.isfile(path_completo_html):
             texto = pasar_html_a_texto(leer_archivo(path_completo_html))
             if texto is not None:
-                print(f"Leído archivo {path_completo_html}")
+                print(f"OK- Archivo {path_completo_html} leído")
                 htmls.append(texto)
             else:
-                print(f"ERROR - No fue posible extraer texto e {path_completo_html}")
+                print(f"ERROR - No fue posible extraer texto de {path_completo_html}")
     target_class = [dir_por_categoria] * len(htmls)
     return htmls, target_class
 
@@ -136,6 +137,7 @@ if __name__ == "__main__":
     # recorrer c/u de los subdirectorios dentro de DIR_BASE_CATEGORIAS, y extraer el texto de c/ archivo html en cada subdirectorio. La categoria asignada
     # a cada html sera el nombre del subdirectorio que lo contiene.
     for dir_por_categoria in un_dir_por_categoria:
+        print(f"Procesando directorio: {dir_por_categoria}")
         htmls, targets  = htmls_y_target(os.path.join(DIR_BASE_CATEGORIAS, dir_por_categoria))
         todos_lost_htmls.extend(htmls)
         todos_los_targets.extend(targets)
