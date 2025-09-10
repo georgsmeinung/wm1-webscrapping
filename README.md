@@ -4,7 +4,8 @@ IMPORTANTE: Un grupo que comparta una entrega  no puede estar formado por más d
 
 Los pasos del TP son: 
 
-**Paso 1)** Conseguir suficientes ejemplos de entrenamiento utilizando las páginas de las secciones “economía”, “política”,  “el mundo” y “el país” del diario Página 12 ([www.pagina12.com.ar](www.pagina12.com.ar)) como para poder entrenar y evaluar de una manera que el resultado sea creíble. Las páginas se descargan utilizando un crawler web. Dentro del archivo `text_mining_python.zip` existe un crawler de ejemplo llamado `scrap_pagina12.py`, **que ud. debe modificar para descargar noticias**. 
+## Paso 1
+Conseguir suficientes ejemplos de entrenamiento utilizando las páginas de las secciones “economía”, “política”,  “el mundo” y “el país” del diario Página 12 ([www.pagina12.com.ar](www.pagina12.com.ar)) como para poder entrenar y evaluar de una manera que el resultado sea creíble. Las páginas se descargan utilizando un crawler web. Dentro del archivo `text_mining_python.zip` existe un crawler de ejemplo llamado `scrap_pagina12.py`, **que ud. debe modificar para descargar noticias**. 
 
 **IMPORTANTE**: `scrap_pagina12.py` NO funciona en colab o Kaggle, debe correrlo en su máquina. 
 
@@ -37,7 +38,8 @@ Como resultado de esta etapa, usted tendrá 4 directorios llamados **"economía"
 
 Luego de descargar noticias, verifique que no ha descargado accidentalmente páginas que no sean de noticias de la sección correspondiente, y de haber algunas, bórrelas manualmente. 
 
-**Paso 2)** El paso siguiente consiste en extraer al menos el texto y la fecha de la cada  páginas html de cada noticia en cada categoría; para esto puede usar una de 3 técnicas:
+## Paso 2
+El paso siguiente consiste en extraer al menos el texto y la fecha de la cada  páginas html de cada noticia en cada categoría; para esto puede usar una de 3 técnicas:
 1.	Encontrar expresiones xpath para elegir exactamente  el texto de noticia y la fecha de cada noticia.
 2.	Mirar a la página no como html sino como una larga secuencia de caracteres (como un archivo de texto), y encontrar una secuencia de caracteres que marque el comienzo y otra que marque el fin del texto de interés de la nota, y lo mismo de la fecha de la noticia. Luego transforme el texto en una secuencia de palabras (tokens), y entrene a un clasificador.
 El archivo de_html_a_tabla.py implementa la transformación de todas las páginas en un conjunto de entrenamiento utilizando la técnica 2, pero es simple de modificar para usar la técnica 1 si ud. quisiear.
