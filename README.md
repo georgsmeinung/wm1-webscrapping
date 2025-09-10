@@ -1,4 +1,4 @@
-# Web Mining - Trabajo Práctico 1 
+# Web Mining - Trabajo Práctico 1: Web Scrapping y text mining
 Su objetivo es entrenar un clasificador que sea capaz de predecir a que categoría pertenece una noticia. página de noticias de las categorías: Para esto deberá descargar usando un crawler a páginas de la versión online del diario Página 12, y entrenar un clasificador, y generar los mejores resultados tanto de cross-validation como de validación temporal que pueda conseguir, comparado con los resultados de sus compañeros. Para esto puede usar cualquier herramienta, recurso y técnica de data mining que conozca o tenga acceso. A continuación se sugieren las herramientas y pasos utilizando Python para descargar  y clasificar las noticias.
 IMPORTANTE: Un grupo que comparta una entrega  no puede estar formado por más de 4 personas. Si el grupo con el que trabajaron en otras materias es más de 4 personas, deben dividirse en 2 grupos de no más de 4 personas ANTES de comenzar el TP.
 
