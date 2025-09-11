@@ -138,3 +138,18 @@ for train_index, test_index in StratifiedKFold(n_splits=CANT_FOLDS_CV, shuffle=T
 
 print("\nAccuracy promedio = {}".format(accuracy_promedio / (n_fold - 1)))
 
+# EVALUACION CON DIVISON TEMPORAL
+print("\nEvaluando con division temporal:")
+# Carga de datos de data.parquet
+import pandas as pd
+from sklearn.model_selection import train_test_split
+
+DF_PARQUET_FILE = "data.parquet"
+
+df = pd.read_parquet(DF_PARQUET_FILE)
+# ordernar por fecha
+df = df.sort_values(by=['_fecha'])
+X = df.drop(columns=['_target'])
+y = df['_target']
+
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42, stratify=y)
