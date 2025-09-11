@@ -13,6 +13,7 @@ import joblib
 from typing import Pattern, Optional, List, Tuple
 import json
 import pandas as pd
+import datetime
 
 stemmer = SnowballStemmer("spanish")
 
@@ -67,6 +68,7 @@ MAX_DF=0.8
 MIN_NGRAMS=1
 MAX_NGRAMS=2
 
+DATA_FILE = "data.joblib"
 VECTORS_FILE = "vectores.joblib"
 TARGETS_FILE = "targets.joblib"
 FEATURE_NAMES_FILE = "features.joblib"
@@ -111,38 +113,33 @@ def extraer_datos_nota(html_doc: str) -> Optional[Tuple[Optional[str], Optional[
     """
     try:
         soup = BeautifulSoup(html_doc, 'html.parser')
-
-        # 1. Extraer titulo
         titulo = None
-        if soup.title:
-            titulo = soup.title.get_text(strip=True)
-
-        # 2. Extraer fecha_publicacion desde JSON-LD si existe
         fecha_publicacion = None
-        script_ld_json = soup.find("script", {"type": "application/ld+json"})
-        if script_ld_json:
+        texto = None
+
+        for json_ld in soup.find_all("script", {"type": "application/ld+json"}):
             try:
-                data_json = json.loads(script_ld_json.string)
+                data_json = json.loads(json_ld.string)
                 if isinstance(data_json, dict):
-                    fecha_publicacion = data_json.get("datePublished")
-                    if "headline" in data_json and not titulo:
-                        titulo = data_json["headline"]
+                    if data_json["@type"] == "NewsArticle" or data_json["@type"] == "LiveBlogPosting":    
+                        # 1. Extraer titulo
+                        if "headline" in data_json and not titulo:
+                            titulo = data_json["headline"]
+                        # 2. Extraer fecha_publicacion desde JSON-LD si existe
+                        if "dateModified" in data_json and not fecha_publicacion:
+                            fecha_publicacion = data_json.get("dateModified")
+                        # 3. Extraer texto principal (articleBody si está en JSON-LD, si no, desde el HTML visible)
+                        texto = pasar_html_a_texto(html_doc)
+                else:
+                    if soup.title:
+                        titulo = soup.title.get_text(strip=True)
+                    if soup.find("meta", {"property": "article:published_time"}):
+                        fecha_publicacion = soup.find("meta", {"property": "article:published_time"})["content"]
+                        fecha_publicacion = datetime.datetime.fromisoformat(fecha_publicacion).isoformat() + "Z"
+                    texto = pasar_html_a_texto(html_doc)
             except json.JSONDecodeError:
                 pass
-
-        # 3. Extraer texto principal (articleBody si está en JSON-LD, si no, desde el HTML visible)
-        texto = None
-        if script_ld_json:
-            try:
-                if isinstance(data_json, dict) and "articleBody" in data_json:
-                    texto = data_json["articleBody"]
-            except Exception:
-                pass
-
-        if not texto:
-            # fallback: usar el contenido visible (puede traer ruido)
-            texto = soup.get_text(separator=" ", strip=True)
-
+                
         return titulo, fecha_publicacion, texto
 
     except Exception as e:
@@ -168,6 +165,7 @@ def htmls_y_target(dir_de_1_categoria:str) -> Tuple[List[str],List[str],List[str
     htmls = []
     titulos = []
     fechas = []
+    archivos = []
     for archivo_html in os.listdir(dir_de_1_categoria):
         path_completo_html = os.path.join(dir_de_1_categoria, archivo_html)
         print(f"Procesando archivo {path_completo_html}...")
@@ -175,19 +173,25 @@ def htmls_y_target(dir_de_1_categoria:str) -> Tuple[List[str],List[str],List[str
             # texto = pasar_html_a_texto(leer_archivo(path_completo_html))
             titulo, fecha, texto = extraer_datos_nota(leer_archivo(path_completo_html))
             if texto is not None:
-                print(f"OK- Archivo {path_completo_html} leído")
+                print(f"OK- Archivo {archivo_html} leído")
+                print(f"    Titulo: {titulo}")
+                print(f"    Fecha publicación: {fecha}")
+                print(f"    Cantidad de caracteres en el texto extraído: {len(texto)}")
+                archivos.append(archivo_html)
                 titulos.append(titulo)
                 fechas.append(fecha)
                 htmls.append(texto)
             else:
                 print(f"ERROR - No fue posible extraer texto de {path_completo_html}")
     target_class = [dir_por_categoria] * len(htmls)
-    return titulos, fechas, htmls, target_class
+    return archivos, titulos, fechas, htmls, target_class
 
 
 if __name__ == "__main__":
 
-    todos_los_datos = []
+    todos_los_archivos = []
+    todos_los_titulos = []
+    todas_las_fechas = []
     todos_los_htmls = []
     todos_los_targets = []
 
@@ -197,10 +201,10 @@ if __name__ == "__main__":
     # a cada html sera el nombre del subdirectorio que lo contiene.
     for dir_por_categoria in un_dir_por_categoria:
         print(f"Procesando directorio: {dir_por_categoria}")
-        titulos, fechas, htmls, targets  = htmls_y_target(os.path.join(DIR_BASE_CATEGORIAS, dir_por_categoria))
-        todos_los_datos.extend(titulos)
-        todos_los_datos.extend(fechas)
-        todos_los_datos.extend(htmls)
+        archivos, titulos, fechas, htmls, targets  = htmls_y_target(os.path.join(DIR_BASE_CATEGORIAS, dir_por_categoria))
+        todos_los_archivos.extend(archivos)
+        todos_los_titulos.extend(titulos)
+        todas_las_fechas.extend(fechas)
         todos_los_htmls.extend(htmls)
         todos_los_targets.extend(targets)
 
@@ -230,11 +234,11 @@ if __name__ == "__main__":
 
     # Generar DataFrame a partir de los vectores
     df_vectores = pd.DataFrame(todos_los_vectores.toarray(), columns=nombres_features)
-    df_vectores['target'] = todos_los_targets
-    # Agregar columnas de metadatos
-    df_vectores['titulo'] = todos_los_datos[0]
-    df_vectores['fecha'] = todos_los_datos[1]
+    df_vectores['_target'] = pd.DataFrame(todos_los_targets, columns=['target'])
+    df_vectores['_archivo'] = todos_los_archivos
+    df_vectores['_titulo'] = todos_los_titulos
+    df_vectores['_fecha'] = todas_las_fechas
+    df_vectores['_token'] = todos_los_vectores.toarray().tolist()
     print(f"DataFrame generado con forma: {df_vectores.shape}")
     # almacenar datafram en archivo .parquet
-    
     df_vectores.to_parquet(DF_PARQUET_FILE)

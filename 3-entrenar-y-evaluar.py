@@ -81,6 +81,11 @@ vectores = joblib.load(VECTORS_FILE)
 nombres_targets = joblib.load(TARGETS_FILE)
 nombres_features = joblib.load(FEATURE_NAMES_FILE)
 
+print(vectores)
+input("Press Enter to continue...")
+print(datos)
+input("Press Enter to continue...")
+
 label_encoder = LabelEncoder()
 targets = label_encoder.fit_transform(nombres_targets)
 idx_a_clase = label_encoder.classes_
